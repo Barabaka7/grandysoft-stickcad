@@ -3,10 +3,11 @@ export type PointCoord = [number, number];
 
 export const getIntersectionPoint = (a: LineCoord, b: LineCoord) => {
   let det, gamma, lambda: number;
+  let nothing: PointCoord = [-10, -10];
+
   det = (a[2] - a[0]) * (b[3] - b[1]) - (b[2] - b[0]) * (a[3] - a[1]);
   if (det === 0) {
-    let p: PointCoord = [0, 0];
-    return p;
+    return nothing;
   } else {
     lambda =
       ((b[3] - b[1]) * (b[2] - a[0]) + (b[0] - b[2]) * (b[3] - a[1])) / det;
@@ -20,14 +21,11 @@ export const getIntersectionPoint = (a: LineCoord, b: LineCoord) => {
 
       let px = (u1 * (b[0] - b[2]) - (a[0] - a[2]) * u4) / det;
       let py = (u1 * (b[1] - b[3]) - (a[1] - a[3]) * u4) / det;
-      console.log(`px ${px}`);
 
-      let po: PointCoord = [Math.floor(px), Math.floor(py)];
-
-      return po;
-    } else {
-      let p: PointCoord = [0, 0];
+      let p: PointCoord = [Math.floor(px), Math.floor(py)];
       return p;
+    } else {
+      return nothing;
     }
   }
 };
