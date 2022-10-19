@@ -171,31 +171,47 @@ function App() {
     }
   };
 
+  let step = 2;
   const clearCanvasAnimated = (canvasLinesToCollapse: LineCoord[]) => {
-    let step = 2;
     const smallerCanvasLines: LineCoord[] = canvasLinesToCollapse.map(
       (line) => {
         let k = (line[1] - line[3]) / (line[0] - line[2]);
         let b = line[1] - k * line[0];
-        let x1, x2: number;
+        let x1, x2, y1, y2: number;
 
-        if (line[0] < line[2]) {
-          x1 = line[0] + step;
-          x2 = line[2] - step;
+        if (Math.abs(line[0] - line[2]) >= Math.abs(line[1] - line[3])) {
+          if (line[0] < line[2]) {
+            x1 = line[0] + step;
+            x2 = line[2] - step;
+          } else {
+            x1 = line[0] - step;
+            x2 = line[2] + step;
+          }
+
+          y1 = k * x1 + b;
+          y2 = k * x2 + b;
         } else {
-          x1 = line[0] - step;
-          x2 = line[2] + step;
-        }
+          console.log("ss");
+          if (line[1] < line[3]) {
+            y1 = line[1] + step;
+            y2 = line[3] - step;
+          } else {
+            y1 = line[1] - step;
+            y2 = line[3] + step;
+          }
 
-        let y1 = k * x1 + b;
-        let y2 = k * x2 + b;
+          x1 = (y1 - b) / k;
+          x2 = (y2 - b) / k;
+        }
 
         return [x1, y1, x2, y2];
       }
     );
 
     const filteredSmallerCanvasLines = smallerCanvasLines.filter(
-      (line) => Math.abs(line[0] - line[2]) >= step + 1
+      (line) =>
+        Math.abs(line[0] - line[2]) >= step + 1 ||
+        Math.abs(line[1] - line[3]) >= step + 1
     );
 
     let collapsingIntersectionsPoints: PointCoord[] = [];
