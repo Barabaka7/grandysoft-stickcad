@@ -66,6 +66,7 @@ function App() {
     intersectionsPoints.forEach((point) => {
       drawPoint(point);
     });
+    // eslint-disable-next-line
   }, [intersectionsPoints]);
 
   const startDrawing = ({ nativeEvent }: MouseEvent) => {
@@ -223,8 +224,25 @@ function App() {
   return (
     <div className="App">
       <canvas
-        onMouseDown={startDrawing}
-        onMouseUp={finishDrawing}
+        onMouseDown={(e) => {
+          if (e.button === 2) {
+            if (isDrawing) {
+              setIsDrawing(false);
+              setStartingPoint(undefined);
+              clearCanvas();
+              redrawCanvas(canvasLines, intersectionsPoints);
+            }
+          }
+        }}
+        onMouseUp={(e) => {
+          if (e.button === 0) {
+            if (!isDrawing) {
+              startDrawing(e);
+            } else {
+              finishDrawing(e);
+            }
+          }
+        }}
         onMouseMove={draw}
         ref={canvasRef}
       />
