@@ -25,15 +25,10 @@ function App() {
     if (canvasRef.current) {
       const canvas = canvasRef.current;
 
-      // canvas.width = window.innerWidth * 2;
-      // canvas.height = window.innerHeight * 2;
-      // canvas.style.width = `${window.innerWidth}px`;
-      // canvas.style.height = `${window.innerHeight}px`;
-
-      canvas.width = 1600;
-      canvas.height = 1000;
-      canvas.style.width = `800px`;
-      canvas.style.height = `500px`;
+      canvas.width = 0.9 * window.innerWidth * 2;
+      canvas.height = 0.7 * window.innerHeight * 2;
+      canvas.style.width = `${0.9 * window.innerWidth}px`;
+      canvas.style.height = `${0.7 * window.innerHeight}px`;
 
       canvas.style.border = `solid 2px red`;
 
@@ -65,6 +60,9 @@ function App() {
   }, [canvasLines]);
 
   useEffect(() => {
+    clearCanvas();
+    redrawCanvas();
+
     intersectionsPoints.forEach((point) => {
       drawPoint(point);
     });
@@ -87,9 +85,6 @@ function App() {
     setCanvasLines((prev) => {
       return [...prev, [...startingPoint, offsetX, offsetY]];
     });
-
-    // clearCanvas();
-    // redrawCanvas();
   };
 
   const draw = ({ nativeEvent }: MouseEvent) => {
@@ -101,7 +96,6 @@ function App() {
     if (canvasRef.current && startingPoint) {
       clearCanvas();
       redrawCanvas();
-      setCurrentLine(undefined);
       setTempIntersectionsPoints([]);
       contextRef.current?.beginPath();
       contextRef.current?.moveTo(startingPoint[0], startingPoint[1]);
@@ -167,6 +161,63 @@ function App() {
     }
   };
 
+  let step = 150;
+  const clearCanvasAnimated = (canvasLinesToCollapse: LineCoord[]) => {
+    //  step--;
+    console.log(`step: ${step}`);
+    if (step === 0) {
+      return;
+    }
+    console.log(canvasLinesToCollapse);
+    const smallerCanvasLines: LineCoord[] = canvasLinesToCollapse.map(
+      (line) => {
+        let k = (line[1] - line[3]) / (line[0] - line[2]);
+        let b = line[1] - k * line[0];
+        let x1, x2: number;
+
+        if (line[0] < line[2]) {
+          x1 = line[0] + 1;
+          x2 = line[2] - 1;
+        } else {
+          x1 = line[0] - 1;
+          x2 = line[2] + 1;
+        }
+
+        let y1 = k * x1 + b;
+        let y2 = k * x2 + b;
+
+        return [x1, y1, x2, y2];
+      }
+    );
+
+    console.log(`smallerCanvasLines; ${smallerCanvasLines}`);
+
+    const filteredSmallercanvasLines = smallerCanvasLines.filter(
+      (line) => Math.abs(line[0] - line[2]) >= 2
+    );
+
+    console.log(`filtetredSmallerCanvasLines; ${filteredSmallercanvasLines}`);
+    if (filteredSmallercanvasLines.length === 0 || step === 0) {
+      clearCanvas();
+      return;
+    }
+
+    clearCanvas();
+    for (let i = 0; i < filteredSmallercanvasLines.length; i++) {
+      contextRef.current?.beginPath();
+      contextRef.current?.moveTo(
+        filteredSmallercanvasLines[i][0],
+        filteredSmallercanvasLines[i][1]
+      );
+      contextRef.current?.lineTo(
+        filteredSmallercanvasLines[i][2],
+        filteredSmallercanvasLines[i][3]
+      );
+      contextRef.current?.stroke();
+    }
+    setTimeout(() => clearCanvasAnimated(filteredSmallercanvasLines), 10);
+  };
+
   return (
     <div className="App">
       <button
@@ -177,6 +228,15 @@ function App() {
         }}
       >
         collapse lines
+      </button>
+      <button
+        onClick={() => {
+          clearCanvasAnimated(canvasLines);
+          canvasLines.length = 0;
+          intersectionsPoints.length = 0;
+        }}
+      >
+        collapse lines animated
       </button>
       <canvas
         onMouseDown={startDrawing}

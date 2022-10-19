@@ -1,5 +1,5 @@
-export type LineCoord = [number, number, number, number];
 export type PointCoord = [number, number];
+export type LineCoord = [number, number, number, number];
 
 export const getIntersectionPoint = (a: LineCoord, b: LineCoord) => {
   let det, gamma, lambda: number;
