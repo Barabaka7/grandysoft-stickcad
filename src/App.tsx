@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, MouseEvent } from "react";
+import { useState, useEffect, useRef, MouseEvent } from "react";
 import "./App.css";
 import {
   getIntersectionPoint,
@@ -61,7 +61,7 @@ function App() {
 
   useEffect(() => {
     clearCanvas();
-    redrawCanvas();
+    redrawCanvas(canvasLines, intersectionsPoints);
 
     intersectionsPoints.forEach((point) => {
       drawPoint(point);
@@ -95,7 +95,7 @@ function App() {
 
     if (canvasRef.current && startingPoint) {
       clearCanvas();
-      redrawCanvas();
+      redrawCanvas(canvasLines, intersectionsPoints);
       setTempIntersectionsPoints([]);
       contextRef.current?.beginPath();
       contextRef.current?.moveTo(startingPoint[0], startingPoint[1]);
@@ -143,32 +143,35 @@ function App() {
     }
   };
 
-  const redrawCanvas = () => {
-    if (canvasLines.length === 0) {
+  const redrawCanvas = (
+    canvasLinesToDraw: LineCoord[],
+    intersectionsPointsToDraw: PointCoord[]
+  ) => {
+    if (canvasLinesToDraw.length === 0) {
       return;
     }
 
     // redraw each stored line
-    for (let i = 0; i < canvasLines.length; i++) {
+    for (let i = 0; i < canvasLinesToDraw.length; i++) {
       contextRef.current?.beginPath();
-      contextRef.current?.moveTo(canvasLines[i][0], canvasLines[i][1]);
-      contextRef.current?.lineTo(canvasLines[i][2], canvasLines[i][3]);
+      contextRef.current?.moveTo(
+        canvasLinesToDraw[i][0],
+        canvasLinesToDraw[i][1]
+      );
+      contextRef.current?.lineTo(
+        canvasLinesToDraw[i][2],
+        canvasLinesToDraw[i][3]
+      );
       contextRef.current?.stroke();
     }
 
-    for (let j = 0; j < intersectionsPoints.length; j++) {
-      drawPoint(intersectionsPoints[j]);
+    for (let j = 0; j < intersectionsPointsToDraw.length; j++) {
+      drawPoint(intersectionsPointsToDraw[j]);
     }
   };
 
-  let step = 150;
   const clearCanvasAnimated = (canvasLinesToCollapse: LineCoord[]) => {
-    //  step--;
-    console.log(`step: ${step}`);
-    if (step === 0) {
-      return;
-    }
-    console.log(canvasLinesToCollapse);
+    let step = 2;
     const smallerCanvasLines: LineCoord[] = canvasLinesToCollapse.map(
       (line) => {
         let k = (line[1] - line[3]) / (line[0] - line[2]);
@@ -176,11 +179,11 @@ function App() {
         let x1, x2: number;
 
         if (line[0] < line[2]) {
-          x1 = line[0] + 1;
-          x2 = line[2] - 1;
+          x1 = line[0] + step;
+          x2 = line[2] - step;
         } else {
-          x1 = line[0] - 1;
-          x2 = line[2] + 1;
+          x1 = line[0] - step;
+          x2 = line[2] + step;
         }
 
         let y1 = k * x1 + b;
@@ -190,60 +193,51 @@ function App() {
       }
     );
 
-    console.log(`smallerCanvasLines; ${smallerCanvasLines}`);
-
-    const filteredSmallercanvasLines = smallerCanvasLines.filter(
-      (line) => Math.abs(line[0] - line[2]) >= 2
+    const filteredSmallerCanvasLines = smallerCanvasLines.filter(
+      (line) => Math.abs(line[0] - line[2]) >= step + 1
     );
 
-    console.log(`filtetredSmallerCanvasLines; ${filteredSmallercanvasLines}`);
-    if (filteredSmallercanvasLines.length === 0 || step === 0) {
+    let collapsingIntersectionsPoints: PointCoord[] = [];
+
+    filteredSmallerCanvasLines.forEach((line1, index1) => {
+      filteredSmallerCanvasLines.forEach((line2, index2) => {
+        if (index1 !== index2) {
+          let isNewPoint: PointCoord = getIntersectionPoint(line1, line2);
+          if (isNewPoint[0] !== -10 && isNewPoint[1] !== -10) {
+            collapsingIntersectionsPoints.push(isNewPoint);
+          }
+        }
+      });
+    });
+
+    if (filteredSmallerCanvasLines.length === 0) {
       clearCanvas();
       return;
     }
 
     clearCanvas();
-    for (let i = 0; i < filteredSmallercanvasLines.length; i++) {
-      contextRef.current?.beginPath();
-      contextRef.current?.moveTo(
-        filteredSmallercanvasLines[i][0],
-        filteredSmallercanvasLines[i][1]
-      );
-      contextRef.current?.lineTo(
-        filteredSmallercanvasLines[i][2],
-        filteredSmallercanvasLines[i][3]
-      );
-      contextRef.current?.stroke();
-    }
-    setTimeout(() => clearCanvasAnimated(filteredSmallercanvasLines), 10);
+    redrawCanvas(filteredSmallerCanvasLines, collapsingIntersectionsPoints);
+    setTimeout(() => clearCanvasAnimated(filteredSmallerCanvasLines), 10);
   };
 
   return (
     <div className="App">
-      <button
-        onClick={() => {
-          clearCanvas();
-          canvasLines.length = 0;
-          intersectionsPoints.length = 0;
-        }}
-      >
-        collapse lines
-      </button>
-      <button
-        onClick={() => {
-          clearCanvasAnimated(canvasLines);
-          canvasLines.length = 0;
-          intersectionsPoints.length = 0;
-        }}
-      >
-        collapse lines animated
-      </button>
       <canvas
         onMouseDown={startDrawing}
         onMouseUp={finishDrawing}
         onMouseMove={draw}
         ref={canvasRef}
       />
+      <button
+        onClick={() => {
+          clearCanvasAnimated(canvasLines);
+          canvasLines.length = 0;
+          intersectionsPoints.length = 0;
+          setTempIntersectionsPoints([]);
+        }}
+      >
+        collapse lines
+      </button>
     </div>
   );
 }
