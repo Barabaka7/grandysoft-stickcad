@@ -1,25 +1,20 @@
 import { useState, useEffect, useRef, MouseEvent } from "react";
 import "./App.css";
-import {
-  getIntersectionPoint,
-  LineCoord,
-  PointCoord,
-} from "./helpers/intersection";
+import { Line } from "./classLine";
+import { Point } from "./classPoint";
 
 function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
 
   const [isDrawing, setIsDrawing] = useState(false);
-  const [startingPoint, setStartingPoint] = useState<PointCoord>();
-  const [canvasLines, setCanvasLines] = useState<LineCoord[]>([]);
-  const [intersectionsPoints, setIntersectionsPoints] = useState<PointCoord[]>(
-    []
-  );
+  const [startingPoint, setStartingPoint] = useState<Point>();
+  const [canvasLines, setCanvasLines] = useState<Line[]>([]);
+  const [intersectionsPoints, setIntersectionsPoints] = useState<Point[]>([]);
   const [tempIntersectionsPoints, setTempIntersectionsPoints] = useState<
-    PointCoord[]
+    Point[]
   >([]);
-  const [currentLine, setCurrentLine] = useState<LineCoord>();
+  const [currentLine, setCurrentLine] = useState<Line>();
 
   useEffect(() => {
     if (canvasRef.current) {
@@ -49,11 +44,10 @@ function App() {
       return;
     }
     canvasLines.forEach((line) => {
-      let isNewPoint: PointCoord = getIntersectionPoint(
-        line,
-        canvasLines[canvasLines.length - 1]
-      );
-      if (isNewPoint[0] !== -10 && isNewPoint[1] !== -10) {
+      let isNewPoint =
+        canvasLines[canvasLines.length - 1].getIntersectionPoint(line);
+
+      if (isNewPoint.x !== -10 && isNewPoint.y !== -10) {
         setIntersectionsPoints((prev) => [...prev, isNewPoint]);
       }
     });
@@ -64,14 +58,16 @@ function App() {
     redrawCanvas(canvasLines, intersectionsPoints);
 
     intersectionsPoints.forEach((point) => {
-      drawPoint(point);
+      if (contextRef.current) {
+        point.drawRedPoint(contextRef.current);
+      }
     });
     // eslint-disable-next-line
   }, [intersectionsPoints]);
 
   const startDrawing = ({ nativeEvent }: MouseEvent) => {
     const { offsetX, offsetY } = nativeEvent;
-    setStartingPoint([offsetX, offsetY]);
+    setStartingPoint(new Point(offsetX, offsetY));
     setIsDrawing(true);
   };
 
@@ -84,7 +80,10 @@ function App() {
       return;
     }
     setCanvasLines((prev) => {
-      return [...prev, [...startingPoint, offsetX, offsetY]];
+      return [
+        ...prev,
+        new Line(startingPoint.x, startingPoint.y, offsetX, offsetY),
+      ];
     });
   };
 
@@ -99,16 +98,18 @@ function App() {
       redrawCanvas(canvasLines, intersectionsPoints);
       setTempIntersectionsPoints([]);
       contextRef.current?.beginPath();
-      contextRef.current?.moveTo(startingPoint[0], startingPoint[1]);
+      contextRef.current?.moveTo(startingPoint.x, startingPoint.y);
       contextRef.current?.lineTo(offsetX, offsetY);
       contextRef.current?.stroke();
       //******* Live */
-      setCurrentLine([...startingPoint, offsetX, offsetY]);
+      setCurrentLine(
+        new Line(startingPoint.x, startingPoint.y, offsetX, offsetY)
+      );
 
       if (currentLine) {
         canvasLines.forEach((line) => {
-          let isNewPoint: PointCoord = getIntersectionPoint(line, currentLine);
-          if (isNewPoint[0] !== -10 && isNewPoint[1] !== -10) {
+          let isNewPoint = line.getIntersectionPoint(currentLine);
+          if (isNewPoint.x !== -10 && isNewPoint.y !== -10) {
             setTempIntersectionsPoints((prev) => [...prev, isNewPoint]);
           }
         });
@@ -116,20 +117,11 @@ function App() {
 
       if (tempIntersectionsPoints) {
         tempIntersectionsPoints.forEach((point) => {
-          drawPoint(point);
+          if (contextRef.current) {
+            point.drawRedPoint(contextRef.current);
+          }
         });
       }
-    }
-  };
-
-  const drawPoint = (point: PointCoord) => {
-    if (contextRef.current) {
-      contextRef.current.fillStyle = "red";
-      contextRef.current.strokeStyle = "black";
-      contextRef.current.beginPath();
-      contextRef.current.arc(point[0], point[1], 5, 0, 2 * Math.PI);
-      contextRef.current.fill();
-      contextRef.current.stroke();
     }
   };
 
@@ -145,8 +137,8 @@ function App() {
   };
 
   const redrawCanvas = (
-    canvasLinesToDraw: LineCoord[],
-    intersectionsPointsToDraw: PointCoord[]
+    canvasLinesToDraw: Line[],
+    intersectionsPointsToDraw: Point[]
   ) => {
     if (canvasLinesToDraw.length === 0) {
       return;
@@ -156,71 +148,43 @@ function App() {
     for (let i = 0; i < canvasLinesToDraw.length; i++) {
       contextRef.current?.beginPath();
       contextRef.current?.moveTo(
-        canvasLinesToDraw[i][0],
-        canvasLinesToDraw[i][1]
+        canvasLinesToDraw[i].x1,
+        canvasLinesToDraw[i].y1
       );
       contextRef.current?.lineTo(
-        canvasLinesToDraw[i][2],
-        canvasLinesToDraw[i][3]
+        canvasLinesToDraw[i].x2,
+        canvasLinesToDraw[i].y2
       );
       contextRef.current?.stroke();
     }
 
     for (let j = 0; j < intersectionsPointsToDraw.length; j++) {
-      drawPoint(intersectionsPointsToDraw[j]);
+      if (contextRef.current) {
+        intersectionsPointsToDraw[j].drawRedPoint(contextRef.current);
+      }
     }
   };
 
-  let step = 2;
-  const clearCanvasAnimated = (canvasLinesToCollapse: LineCoord[]) => {
-    const smallerCanvasLines: LineCoord[] = canvasLinesToCollapse.map(
-      (line) => {
-        let k = (line[1] - line[3]) / (line[0] - line[2]);
-        let b = line[1] - k * line[0];
-        let x1, x2, y1, y2: number;
+  const clearCanvasAnimated = (canvasLinesToCollapse: Line[]) => {
+    let step = 2;
 
-        if (Math.abs(line[0] - line[2]) >= Math.abs(line[1] - line[3])) {
-          if (line[0] < line[2]) {
-            x1 = line[0] + step;
-            x2 = line[2] - step;
-          } else {
-            x1 = line[0] - step;
-            x2 = line[2] + step;
-          }
-
-          y1 = k * x1 + b;
-          y2 = k * x2 + b;
-        } else {
-          console.log("ss");
-          if (line[1] < line[3]) {
-            y1 = line[1] + step;
-            y2 = line[3] - step;
-          } else {
-            y1 = line[1] - step;
-            y2 = line[3] + step;
-          }
-
-          x1 = (y1 - b) / k;
-          x2 = (y2 - b) / k;
-        }
-
-        return [x1, y1, x2, y2];
-      }
+    const smallerCanvasLines: Line[] = canvasLinesToCollapse.map((line) =>
+      line.getSmallerLineByStepFromBothSide(step)
     );
 
     const filteredSmallerCanvasLines = smallerCanvasLines.filter(
       (line) =>
-        Math.abs(line[0] - line[2]) >= step + 1 ||
-        Math.abs(line[1] - line[3]) >= step + 1
+        Math.abs(line.x1 - line.x2) >= step + 1 ||
+        Math.abs(line.y1 - line.y2) >= step + 1
     );
 
-    let collapsingIntersectionsPoints: PointCoord[] = [];
+    let collapsingIntersectionsPoints: Point[] = [];
 
     filteredSmallerCanvasLines.forEach((line1, index1) => {
       filteredSmallerCanvasLines.forEach((line2, index2) => {
         if (index1 !== index2) {
-          let isNewPoint: PointCoord = getIntersectionPoint(line1, line2);
-          if (isNewPoint[0] !== -10 && isNewPoint[1] !== -10) {
+          let isNewPoint = line1.getIntersectionPoint(line2);
+          if (isNewPoint.x !== -10 && isNewPoint.y !== -10) {
             collapsingIntersectionsPoints.push(isNewPoint);
           }
         }
